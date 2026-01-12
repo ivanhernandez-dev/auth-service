@@ -546,19 +546,19 @@ public record RegisterRequest(
 
 ### Tech Stack
 
-| Category       | Technology                       | Version  |
-|----------------|----------------------------------|----------|
-| Language       | Java                             | 25       |
-| Framework      | Spring Boot                      | 3.4.1    |
-| Security       | Spring Security + jjwt           | 0.12.6   |
-| Persistence    | Spring Data JPA                  | 3.4.1    |
-| Database (Dev) | H2 (in-memory)                   | 2.3.232  |
-| Database (Prod)| PostgreSQL                       | 16       |
-| Cache          | Redis                            | 7        |
-| Email (Dev)    | MailHog                          | latest   |
-| Documentation  | SpringDoc OpenAPI                | 2.7.0    |
-| Build          | Maven                            | 3.9+     |
-| Testing        | JUnit 5, Mockito, Testcontainers | 1.20.4   |
+| Category       | Technology                       | Version        |
+|----------------|----------------------------------|----------------|
+| Language       | Java                             | 25             |
+| Framework      | Spring Boot                      | 3.5.0-SNAPSHOT |
+| Security       | Spring Security + jjwt           | 0.12.6         |
+| Persistence    | Spring Data JPA                  | -              |
+| Database (Dev) | H2 (in-memory)                   | -              |
+| Database (Prod)| PostgreSQL                       | 16             |
+| Cache          | Redis                            | 7              |
+| Email (Dev)    | MailHog                          | latest         |
+| Documentation  | SpringDoc OpenAPI                | 2.8.4          |
+| Build          | Maven                            | 3.9+           |
+| Testing        | JUnit 5, Mockito, Testcontainers | 1.20.4         |
 
 ### Running Locally
 
