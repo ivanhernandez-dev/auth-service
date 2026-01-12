@@ -1,0 +1,113 @@
+spring:
+  application:
+    name: auth-service
+
+  profiles:
+    active: dev
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+server:
+  port: 8082
+
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-must-be-at-least-32-characters-long}
+  access-token-expiration-ms: 900000  # 15 minutes
+  refresh-token-expiration-days: 30
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8082}
+  email:
+    from: ${EMAIL_FROM:noreply@authservice.ivanhernandez.dev}
+
+rate-limit:
+  endpoints:
+    /api/v1/auth/login:
+      max-attempts: 5
+      window: 15m
+    /api/v1/auth/register:
+      max-attempts: 3
+      window: 1h
+    /api/v1/auth/password/reset-request:
+      max-attempts: 3
+      window: 1h
+    /api/v1/auth/password/reset:
+      max-attempts: 5
+      window: 1h
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:h2:mem:authdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${DATABASE_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
