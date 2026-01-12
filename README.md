@@ -50,6 +50,12 @@ Demonstrates clean architecture principles, comprehensive security practices, an
 
 This service provides centralized authentication for multiple SaaS applications, eliminating the need for each app to implement its own auth system.
 
+### Integrated Services
+
+| Service | Description | Integration |
+|---------|-------------|-------------|
+| [URL Shortener](../url-shortener) | URL shortening service | Uses Token Introspection endpoint |
+
 ### Key Features
 
 | Feature                 | Description                                      |
@@ -145,6 +151,7 @@ curl -X POST http://localhost:8082/api/v1/auth/register \
 | `POST` | `/register`               | Register new user            | No   |
 | `POST` | `/login`                  | Sign in                      | No   |
 | `POST` | `/refresh`                | Renew access token           | No   |
+| `POST` | `/introspect`             | Validate token (for services)| No   |
 | `POST` | `/logout`                 | Sign out (current session)   | Yes  |
 | `POST` | `/logout-all`             | Sign out all devices         | Yes  |
 | `GET`  | `/verify-email?token=`    | Verify email via link        | No   |
@@ -639,6 +646,75 @@ mvn test jacoco:report
 ```
 methodName_shouldDoSomething_whenCondition
 ```
+
+---
+
+## 🔗 Integrating Other Services
+
+Other microservices can validate JWT tokens using the **Token Introspection** endpoint.
+
+### Token Introspection Endpoint
+
+```
+POST /api/v1/auth/introspect
+```
+
+**Request:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Response (valid token):**
+```json
+{
+  "active": true,
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "tenantId": "660e8400-e29b-41d4-a716-446655440000",
+  "tenantSlug": "acme",
+  "email": "user@acme.com",
+  "roles": ["USER"]
+}
+```
+
+**Response (invalid/expired token):**
+```json
+{
+  "active": false,
+  "userId": null,
+  "tenantId": null,
+  "tenantSlug": null,
+  "email": null,
+  "roles": null
+}
+```
+
+### Integration Example
+
+```java
+@Component
+public class AuthServiceClient {
+
+    private final RestClient restClient;
+
+    public AuthServiceClient(@Value("${auth-service.base-url}") String baseUrl) {
+        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    }
+
+    public Optional<IntrospectResponse> introspect(String token) {
+        var response = restClient.post()
+                .uri("/api/v1/auth/introspect")
+                .body(Map.of("token", token))
+                .retrieve()
+                .body(IntrospectResponse.class);
+        
+        return response.active() ? Optional.of(response) : Optional.empty();
+    }
+}
+```
+
+See the [URL Shortener](../url-shortener) for a complete integration example.
 
 ---
 

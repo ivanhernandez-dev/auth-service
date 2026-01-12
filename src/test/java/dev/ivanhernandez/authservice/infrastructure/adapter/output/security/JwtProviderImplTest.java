@@ -132,4 +132,40 @@ class JwtProviderImplTest {
 
         assertEquals(0, remainingSeconds);
     }
+
+    @Test
+    @DisplayName("getTenantSlugFromToken should return correct tenant slug")
+    void getTenantSlugFromToken_shouldReturnCorrectTenantSlug() {
+        User user = createTestUser();
+        String token = jwtProvider.generateAccessToken(user);
+
+        String tenantSlug = jwtProvider.getTenantSlugFromToken(token);
+
+        assertEquals(user.getTenant().getSlug(), tenantSlug);
+    }
+
+    @Test
+    @DisplayName("getEmailFromToken should return correct email")
+    void getEmailFromToken_shouldReturnCorrectEmail() {
+        User user = createTestUser();
+        String token = jwtProvider.generateAccessToken(user);
+
+        String email = jwtProvider.getEmailFromToken(token);
+
+        assertEquals(user.getEmail(), email);
+    }
+
+    @Test
+    @DisplayName("getRolesFromToken should return correct roles")
+    void getRolesFromToken_shouldReturnCorrectRoles() {
+        User user = createTestUser();
+        String token = jwtProvider.generateAccessToken(user);
+
+        var roles = jwtProvider.getRolesFromToken(token);
+
+        assertNotNull(roles);
+        assertEquals(2, roles.size());
+        assertTrue(roles.contains("USER"));
+        assertTrue(roles.contains("ADMIN"));
+    }
 }

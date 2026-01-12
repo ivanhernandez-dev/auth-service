@@ -60,6 +60,25 @@ public class JwtProviderImpl implements JwtProvider {
     }
 
     @Override
+    public String getTenantSlugFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("tenantSlug", String.class);
+    }
+
+    @Override
+    public String getEmailFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("email", String.class);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public java.util.List<String> getRolesFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("roles", java.util.List.class);
+    }
+
+    @Override
     public boolean validateToken(String token) {
         try {
             parseToken(token);

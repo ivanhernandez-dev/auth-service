@@ -1,9 +1,11 @@
 package dev.ivanhernandez.authservice.infrastructure.adapter.input.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.ivanhernandez.authservice.application.dto.request.IntrospectRequest;
 import dev.ivanhernandez.authservice.application.dto.request.LoginRequest;
 import dev.ivanhernandez.authservice.application.dto.request.RegisterRequest;
 import dev.ivanhernandez.authservice.application.dto.response.AuthResponse;
+import dev.ivanhernandez.authservice.application.dto.response.IntrospectResponse;
 import dev.ivanhernandez.authservice.application.dto.response.UserProfileResponse;
 import dev.ivanhernandez.authservice.application.port.input.*;
 import dev.ivanhernandez.authservice.application.port.output.JwtProvider;
@@ -57,6 +59,8 @@ class AuthControllerTest {
     private RequestPasswordResetUseCase requestPasswordResetUseCase;
     @MockBean
     private ResetPasswordUseCase resetPasswordUseCase;
+    @MockBean
+    private IntrospectTokenUseCase introspectTokenUseCase;
     @MockBean
     private JwtProvider jwtProvider;
     @MockBean
@@ -201,5 +205,48 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /auth/introspect should return active response for valid token")
+    void introspect_shouldReturnActiveResponse_forValidToken() throws Exception {
+        IntrospectRequest request = new IntrospectRequest("valid.token.here");
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        IntrospectResponse response = IntrospectResponse.active(
+                userId,
+                tenantId,
+                "acme",
+                "user@acme.com",
+                List.of("USER")
+        );
+
+        when(introspectTokenUseCase.introspect(any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/introspect")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.userId").value(userId.toString()))
+                .andExpect(jsonPath("$.tenantId").value(tenantId.toString()))
+                .andExpect(jsonPath("$.tenantSlug").value("acme"))
+                .andExpect(jsonPath("$.email").value("user@acme.com"));
+    }
+
+    @Test
+    @DisplayName("POST /auth/introspect should return inactive response for invalid token")
+    void introspect_shouldReturnInactiveResponse_forInvalidToken() throws Exception {
+        IntrospectRequest request = new IntrospectRequest("invalid.token");
+
+        when(introspectTokenUseCase.introspect(any())).thenReturn(IntrospectResponse.inactive());
+
+        mockMvc.perform(post("/api/v1/auth/introspect")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.userId").doesNotExist());
     }
 }
