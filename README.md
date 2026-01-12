@@ -71,21 +71,21 @@ The service supports multiple **tenants** (client organizations), each with thei
 
 ```mermaid
 graph TB
-    subgraph Auth Service
-        subgraph Tenant A - acme
-            A1[user1@a.com]
-            A2[user2@a.com]
-            A3[admin@a.com]
+    subgraph AS[Auth Service]
+        subgraph TA["Tenant A (acme)"]
+            A1["user1@a.com"]
+            A2["user2@a.com"]
+            A3["admin@a.com"]
         end
-        subgraph Tenant B - globex
-            B1[user1@b.com]
-            B2[user2@b.com]
-            B3[admin@b.com]
+        subgraph TB["Tenant B (globex)"]
+            B1["user1@b.com"]
+            B2["user2@b.com"]
+            B3["admin@b.com"]
         end
-        subgraph Tenant C - initech
-            C1[user1@c.com]
-            C2[user2@c.com]
-            C3[admin@c.com]
+        subgraph TC["Tenant C (initech)"]
+            C1["user1@c.com"]
+            C2["user2@c.com"]
+            C3["admin@c.com"]
         end
     end
 ```
