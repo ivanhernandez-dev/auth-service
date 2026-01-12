@@ -2,6 +2,7 @@ package dev.ivanhernandez.authservice.infrastructure.adapter.input.rest;
 
 import dev.ivanhernandez.authservice.application.dto.request.*;
 import dev.ivanhernandez.authservice.application.dto.response.AuthResponse;
+import dev.ivanhernandez.authservice.application.dto.response.IntrospectResponse;
 import dev.ivanhernandez.authservice.application.dto.response.MessageResponse;
 import dev.ivanhernandez.authservice.application.dto.response.TokenResponse;
 import dev.ivanhernandez.authservice.application.dto.response.UserProfileResponse;
@@ -34,6 +35,7 @@ public class AuthController {
     private final VerifyEmailUseCase verifyEmailUseCase;
     private final RequestPasswordResetUseCase requestPasswordResetUseCase;
     private final ResetPasswordUseCase resetPasswordUseCase;
+    private final IntrospectTokenUseCase introspectTokenUseCase;
 
     public AuthController(RegisterUserUseCase registerUserUseCase,
                           LoginUseCase loginUseCase,
@@ -41,7 +43,8 @@ public class AuthController {
                           LogoutUseCase logoutUseCase,
                           VerifyEmailUseCase verifyEmailUseCase,
                           RequestPasswordResetUseCase requestPasswordResetUseCase,
-                          ResetPasswordUseCase resetPasswordUseCase) {
+                          ResetPasswordUseCase resetPasswordUseCase,
+                          IntrospectTokenUseCase introspectTokenUseCase) {
         this.registerUserUseCase = registerUserUseCase;
         this.loginUseCase = loginUseCase;
         this.refreshTokenUseCase = refreshTokenUseCase;
@@ -49,6 +52,7 @@ public class AuthController {
         this.verifyEmailUseCase = verifyEmailUseCase;
         this.requestPasswordResetUseCase = requestPasswordResetUseCase;
         this.resetPasswordUseCase = resetPasswordUseCase;
+        this.introspectTokenUseCase = introspectTokenUseCase;
     }
 
     @PostMapping("/register")
@@ -93,6 +97,16 @@ public class AuthController {
     })
     public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         TokenResponse response = refreshTokenUseCase.refresh(request.refreshToken());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/introspect")
+    @Operation(summary = "Introspect token", description = "Validates a token and returns user information if valid")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Token introspection result")
+    })
+    public ResponseEntity<IntrospectResponse> introspect(@Valid @RequestBody IntrospectRequest request) {
+        IntrospectResponse response = introspectTokenUseCase.introspect(request.token());
         return ResponseEntity.ok(response);
     }
 
