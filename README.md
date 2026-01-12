@@ -69,166 +69,227 @@ This API handles **all authentication concerns** for your applications:
 
 The service supports multiple **tenants** (client organizations), each with their own isolated user base:
 
+```mermaid
+graph TB
+    subgraph Auth Service
+        subgraph Tenant A - acme
+            A1[user1@a.com]
+            A2[user2@a.com]
+            A3[admin@a.com]
+        end
+        subgraph Tenant B - globex
+            B1[user1@b.com]
+            B2[user2@b.com]
+            B3[admin@b.com]
+        end
+        subgraph Tenant C - initech
+            C1[user1@c.com]
+            C2[user2@c.com]
+            C3[admin@c.com]
+        end
+    end
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        AUTH SERVICE                              │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │  Tenant A   │  │  Tenant B   │  │  Tenant C   │             │
-│  │  (acme)     │  │  (globex)   │  │  (initech)  │             │
-│  ├─────────────┤  ├─────────────┤  ├─────────────┤             │
-│  │ user1@a.com │  │ user1@b.com │  │ user1@c.com │             │
-│  │ user2@a.com │  │ user2@b.com │  │ user2@c.com │             │
-│  │ admin@a.com │  │ admin@b.com │  │ admin@c.com │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
-└─────────────────────────────────────────────────────────────────┘
 
 - Same email can exist in different tenants (user1@a.com in Acme ≠ user1@a.com in Globex)
 - Each tenant is identified by a unique slug (acme, globex, initech)
 - Tenants can be enabled/disabled independently
-```
 
 ### How Authentication Works
 
+#### 1. Registration
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant E as Email Service
+    C->>A: POST /register {tenantSlug, email, password, name}
+    A->>A: Hash password
+    A->>A: Create user (unverified)
+    A->>E: Send verification email
+    A-->>C: 201 Created
+    E-->>C: 📧 Verification Email
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    AUTHENTICATION FLOW                            │
-└──────────────────────────────────────────────────────────────────┘
 
-1. REGISTRATION
-   ┌────────┐     POST /register        ┌────────────┐
-   │ Client │ ───────────────────────►  │ Auth API   │
-   └────────┘  {tenantSlug, email,      └────────────┘
-               password, name}                │
-                                              ▼
-                                    ┌──────────────────┐
-                                    │ - Hash password  │
-                                    │ - Create user    │
-                                    │ - Send email     │
-                                    └──────────────────┘
-                                              │
-   ┌────────┐     📧 Verification Email      │
-   │ User   │ ◄──────────────────────────────┘
-   └────────┘
+#### 2. Email Verification
 
-2. EMAIL VERIFICATION
-   ┌────────┐     GET /verify-email?token=xxx    ┌────────────┐
-   │ User   │ ──────────────────────────────►    │ Auth API   │
-   └────────┘                                    └────────────┘
-                                                       │
-                                              ┌────────▼────────┐
-                                              │ User verified ✓ │
-                                              └─────────────────┘
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Auth API
+    U->>A: GET /verify-email?token=xxx
+    A->>A: Validate token
+    A->>A: Mark user as verified ✓
+    A-->>U: 200 OK
+```
 
-3. LOGIN
-   ┌────────┐     POST /login              ┌────────────┐
-   │ Client │ ──────────────────────────►  │ Auth API   │
-   └────────┘  {tenantSlug, email,         └────────────┘
-               password}                         │
-                                                 ▼
-                                    ┌───────────────────────┐
-                                    │ - Verify credentials  │
-                                    │ - Check rate limit    │
-                                    │ - Generate tokens     │
-                                    │ - Log attempt         │
-                                    └───────────────────────┘
-                                                 │
-   ┌────────┐     {accessToken,                  │
-   │ Client │ ◄──────refreshToken}───────────────┘
-   └────────┘
+#### 3. Login
 
-4. USING PROTECTED ENDPOINTS
-   ┌────────┐     GET /users/me                   ┌────────────┐
-   │ Client │ ───────────────────────────────►    │ Auth API   │
-   └────────┘  Authorization: Bearer <token>      └────────────┘
-                                                        │
-                                              ┌─────────▼─────────┐
-                                              │ - Validate JWT    │
-                                              │ - Check blacklist │
-                                              │ - Extract userId  │
-                                              └───────────────────┘
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant R as Redis
+    participant DB as Database
+    C->>A: POST /login {tenantSlug, email, password}
+    A->>R: Check rate limit
+    A->>DB: Find user
+    A->>A: Verify password
+    A->>A: Check email verified
+    A->>A: Generate JWT (Access Token)
+    A->>DB: Save Refresh Token
+    A->>DB: Log attempt
+    A-->>C: 200 OK {accessToken, refreshToken}
+```
 
-5. TOKEN REFRESH (when access token expires)
-   ┌────────┐     POST /refresh               ┌────────────┐
-   │ Client │ ──────────────────────────►     │ Auth API   │
-   └────────┘  {refreshToken}                 └────────────┘
-                                                    │
-   ┌────────┐     {new accessToken,                 │
-   │ Client │ ◄───────new refreshToken}─────────────┘
-   └────────┘
+#### 4. Using Protected Endpoints
 
-6. LOGOUT (current session only)
-   ┌────────┐     POST /logout                ┌────────────┐
-   │ Client │ ──────────────────────────►     │ Auth API   │
-   └────────┘  Authorization: Bearer <token>  └────────────┘
-               Body: {refreshToken}                 │
-                                         ┌──────────▼──────────┐
-                                         │ - Blacklist access  │
-                                         │ - Revoke THIS       │
-                                         │   refresh token     │
-                                         └─────────────────────┘
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant R as Redis
+    C->>A: GET /users/me (Authorization: Bearer token)
+    A->>A: Validate JWT signature
+    A->>R: Check blacklist
+    A->>A: Extract userId from token
+    A-->>C: 200 OK {user profile}
+```
 
-7. LOGOUT ALL DEVICES
-   ┌────────┐     POST /logout-all            ┌────────────┐
-   │ Client │ ──────────────────────────►     │ Auth API   │
-   └────────┘  Authorization: Bearer <token>  └────────────┘
-                                                    │
-                                         ┌──────────▼──────────┐
-                                         │ - Blacklist access  │
-                                         │ - Revoke ALL        │
-                                         │   refresh tokens    │
-                                         └─────────────────────┘
+#### 5. Token Refresh
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant DB as Database
+    C->>A: POST /refresh {refreshToken}
+    A->>DB: Find refresh token
+    A->>A: Validate not expired/revoked
+    A->>A: Generate new JWT
+    A->>DB: Save new refresh token
+    A->>DB: Revoke old refresh token
+    A-->>C: 200 OK {new accessToken, new refreshToken}
+```
+
+#### 6. Logout (Current Session)
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant R as Redis
+    participant DB as Database
+    C->>A: POST /logout (Bearer token + {refreshToken})
+    A->>R: Blacklist access token (TTL = remaining time)
+    A->>DB: Revoke THIS refresh token only
+    A-->>C: 200 OK
+```
+
+#### 7. Logout All Devices
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant R as Redis
+    participant DB as Database
+    C->>A: POST /logout-all (Bearer token)
+    A->>R: Blacklist access token
+    A->>DB: Revoke ALL user's refresh tokens
+    A-->>C: 200 OK
 ```
 
 ### Password Reset Flow
 
-```
-1. User requests reset    POST /password/reset-request {email}
-         │
-         ▼
-2. Email sent with token  📧 "Click here to reset..."
-         │
-         ▼
-3. User clicks link       → Frontend shows new password form
-         │
-         ▼
-4. Submit new password    POST /password/reset {token, newPassword}
-         │
-         ▼
-5. Password updated       ✓ All sessions revoked for security
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant A as Auth API
+    participant E as Email Service
+    U->>A: POST /password/reset-request {email}
+    A->>E: Send reset email
+    A-->>U: 200 OK (email sent if exists)
+    E-->>U: 📧 Click here to reset...
+    U->>F: Click link with token
+    F->>F: Show new password form
+    U->>A: POST /password/reset {token, newPassword}
+    A->>A: Validate token
+    A->>A: Hash new password
+    A->>A: Revoke all sessions ✓
+    A-->>U: 200 OK (password updated)
 ```
 
 ### Data Model
 
-```
-┌─────────────┐       ┌─────────────┐       ┌──────────────────┐
-│   Tenant    │       │    User     │       │  RefreshToken    │
-├─────────────┤       ├─────────────┤       ├──────────────────┤
-│ id          │◄──┐   │ id          │◄──┐   │ id               │
-│ name        │   │   │ tenant_id   │───┘   │ user_id          │───┐
-│ slug        │   │   │ email       │       │ token_hash       │   │
-│ enabled     │   └───│ password    │       │ expires_at       │   │
-│ created_at  │       │ first_name  │       │ revoked          │   │
-└─────────────┘       │ last_name   │       └──────────────────┘   │
-                      │ verified    │                              │
-                      │ enabled     │◄─────────────────────────────┘
-                      │ roles       │
-                      │ created_at  │
-                      └─────────────┘
-                            │
-          ┌─────────────────┼─────────────────┐
-          ▼                 ▼                 ▼
-┌──────────────────┐ ┌─────────────┐ ┌──────────────────┐
-│ EmailVerifyToken │ │ LoginAttempt│ │ PasswordReset    │
-├──────────────────┤ ├─────────────┤ ├──────────────────┤
-│ user_id          │ │ user_id     │ │ user_id          │
-│ token            │ │ email       │ │ token_hash       │
-│ expires_at       │ │ tenant_slug │ │ expires_at       │
-│ used             │ │ ip_address  │ │ used             │
-└──────────────────┘ │ user_agent  │ └──────────────────┘
-                     │ success     │
-                     │ created_at  │
-                     └─────────────┘
+```mermaid
+erDiagram
+    Tenant ||--o{ User : has
+    User ||--o{ RefreshToken : has
+    User ||--o{ EmailVerificationToken : has
+    User ||--o{ PasswordResetToken : has
+    User ||--o{ LoginAttempt : logs
+
+    Tenant {
+        uuid id PK
+        string name
+        string slug UK
+        boolean enabled
+        datetime created_at
+    }
+
+    User {
+        uuid id PK
+        uuid tenant_id FK
+        string email
+        string password_hash
+        string first_name
+        string last_name
+        boolean email_verified
+        boolean enabled
+        set roles
+        datetime created_at
+        datetime updated_at
+    }
+
+    RefreshToken {
+        uuid id PK
+        uuid user_id FK
+        string token_hash UK
+        datetime expires_at
+        boolean revoked
+        datetime created_at
+    }
+
+    EmailVerificationToken {
+        uuid id PK
+        uuid user_id FK
+        string token UK
+        datetime expires_at
+        boolean used
+        datetime created_at
+    }
+
+    PasswordResetToken {
+        uuid id PK
+        uuid user_id FK
+        string token UK
+        datetime expires_at
+        boolean used
+        datetime created_at
+    }
+
+    LoginAttempt {
+        uuid id PK
+        uuid user_id FK
+        string email
+        string tenant_slug
+        string ip_address
+        string user_agent
+        boolean success
+        datetime attempted_at
+    }
 ```
 
 ### Integration Example
@@ -685,29 +746,39 @@ public ResponseEntity<UserProfileResponse> register(@Valid @RequestBody Register
 
 ### Token Lifecycle & Logout
 
-```
-LOGIN:
-┌─────────────────────────────────────────────────────────────┐
-│ 1. User sends credentials                                   │
-│ 2. Server generates Access Token (JWT, signed)              │
-│ 3. Server generates Refresh Token (saved in DB)             │
-│ 4. Both tokens returned to client                           │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph LOGIN
+        L1[User sends credentials]
+        L2[Server generates Access Token - JWT signed]
+        L3[Server generates Refresh Token - saved in DB]
+        L4[Both tokens returned to client]
+        L1 --> L2 --> L3 --> L4
+    end
 
-USING THE API:
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Client sends Access Token in Authorization header        │
-│ 2. Server verifies signature + expiration + blacklist       │
-│ 3. If valid → request proceeds                              │
-└─────────────────────────────────────────────────────────────┘
+    subgraph USING_API[USING THE API]
+        U1[Client sends Access Token in header]
+        U2[Server verifies signature + expiration]
+        U3[Server checks blacklist]
+        U4{Valid?}
+        U5[Request proceeds ✓]
+        U6[401 Unauthorized ✗]
+        U1 --> U2 --> U3 --> U4
+        U4 -->|Yes| U5
+        U4 -->|No| U6
+    end
 
-LOGOUT:
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Access Token added to BLACKLIST (Redis/Memory)           │
-│    └─ TTL = remaining time until expiration                 │
-│ 2. Refresh Token DELETED from database                      │
-│ 3. Any subsequent request with that Access Token → rejected │
-└─────────────────────────────────────────────────────────────┘
+    subgraph LOGOUT
+        O1[Access Token added to BLACKLIST]
+        O2[TTL = remaining time until expiration]
+        O3[Refresh Token REVOKED in database]
+        O4[Subsequent requests with token → rejected]
+        O1 --> O2
+        O1 --> O3 --> O4
+    end
+
+    LOGIN --> USING_API
+    USING_API --> LOGOUT
 ```
 
 ### Why Blacklist for Access Tokens?
