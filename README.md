@@ -54,7 +54,7 @@ This service provides centralized authentication for multiple SaaS applications,
 
 | Service | Description | Integration |
 |---------|-------------|-------------|
-| [URL Shortener](../url-shortener) | URL shortening service | Uses Token Introspection endpoint |
+| [URL Shortener](../../../url-shortener) | URL shortening service | Uses Token Introspection endpoint |
 
 ### Key Features
 
@@ -714,7 +714,7 @@ public class AuthServiceClient {
 }
 ```
 
-See the [URL Shortener](../url-shortener) for a complete integration example.
+See the [URL Shortener](../../../url-shortener) for a complete integration example.
 
 ---
 
